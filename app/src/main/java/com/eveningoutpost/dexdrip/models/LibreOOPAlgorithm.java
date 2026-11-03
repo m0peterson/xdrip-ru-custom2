@@ -292,7 +292,7 @@ public class LibreOOPAlgorithm {
     }
 
     public static SensorType getSensorType(byte[] SensorInfo) {
-        if (SensorInfo == null) {
+        if (SensorInfo == null || SensorInfo.length < 3) {
             return SensorType.Libre1;
         }
         if (SensorInfo.length == 24) {

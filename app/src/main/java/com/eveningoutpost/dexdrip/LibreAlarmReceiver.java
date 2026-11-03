@@ -13,7 +13,6 @@ import com.eveningoutpost.dexdrip.models.SensorSanity;
 import com.eveningoutpost.dexdrip.models.UserError.Log;
 import com.eveningoutpost.dexdrip.importedlibraries.usbserial.util.HexDump;
 import com.eveningoutpost.dexdrip.models.BgReading;
-import com.eveningoutpost.dexdrip.models.Calibration;
 import com.eveningoutpost.dexdrip.models.Forecast;
 import com.eveningoutpost.dexdrip.models.GlucoseData;
 import com.eveningoutpost.dexdrip.models.JoH;
@@ -73,32 +72,9 @@ public class LibreAlarmReceiver extends BroadcastReceiver {
         return Pref.getString("calibrate_external_libre_2_algorithm_type","calibrate_raw").equals("calibrate_glucose");
     }
 
-    // Should a value received from a Libre bridge (LibreReceiver) go through the calibration
-    // pipeline? Only when the user enabled calibration AND we have a valid calibration - the
-    // no-calibration branch of BgReading.create() leaves calculated_value at 0 (invisible!).
-    public static boolean applyCalibrationToBridgeData() {
-        return DexCollectionType.isLibreCalibrationEnabled() && (Calibration.lastValid() != null);
-    }
-
-    // Insert a glucose-scale reading received from a Libre bridge data source.
-    // When calibration is active the value is fed through BgReading.create() using the same
-    // "glucose as raw" convention as the calibrate_glucose mode: value * 1000 compensates the
-    // /1000 scaling inside BgReading.create(), so user slope/intercept apply to the display.
+    // All bridge paths share validation, deduplication and the calibration-mode gate.
     public static void insertLibreBridgeBg(int glucose, long timestamp, long margin, boolean quick) {
-        if ((glucose <= 0) || (timestamp <= 0)) {
-            Log.e(TAG, "Invalid data fed to insertLibreBridgeBg " + glucose + " " + JoH.dateTimeText(timestamp));
-            return;
-        }
-        if (applyCalibrationToBridgeData()) {
-            if (BgReading.readingNearTimeStamp(timestamp, margin) != null) {
-                if (d) Log.d(TAG, "Ignoring duplicate timestamp for bridge reading: " + JoH.dateTimeText(timestamp));
-                return;
-            }
-            final double converted = glucose * 1000;
-            BgReading.create(converted, converted, xdrip.getAppContext(), timestamp, quick, LIBRE_SOURCE_INFO);
-        } else {
-            BgReading.bgReadingInsertFromInt(glucose, timestamp, margin, false, LIBRE_SOURCE_INFO);
-        }
+        BgReading.bgReadingInsertLibre2(glucose, timestamp, glucose, margin, quick);
     }
 
     private static void createBGfromGD(GlucoseData gd, boolean use_smoothed_data, boolean quick) {

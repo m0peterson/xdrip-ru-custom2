@@ -635,8 +635,8 @@
     <string name="use_external_blukon_algorithm">Внешний алгоритм Libre.</string>
     <string name="calibrate_external_libre_algorithm_summary">Применять калибровки xDrip к данным OOP.</string>
     <string name="calibrate_external_libre_algorithm_title">Калибровка OOP алгоритма.</string>
-    <string name="calibrate_external_libre_2_algorithm_summary">Применять калибровки xDrip к данным OOP.</string>
-    <string name="calibrate_external_libre_2_algorithm_title">Калибровка по алгоритму OOP2.</string>
+    <string name="calibrate_external_libre_2_algorithm_summary">Применять калибровку xDrip к данным моста Libre и OOP2. No calibration отключает поправку для новых показаний.</string>
+    <string name="calibrate_external_libre_2_algorithm_title">Калибровка Libre / OOP2</string>
     <string name="libre_use_smoothed_data_summary">Использовать среднее из 5 точек для сглаживания показаний Libre.</string>
     <string name="libre_use_smoothed_data_title">Сглаживать показания Libre.</string>
     <string name="retrieve_blukon_history_title">Получать историю Libre</string>

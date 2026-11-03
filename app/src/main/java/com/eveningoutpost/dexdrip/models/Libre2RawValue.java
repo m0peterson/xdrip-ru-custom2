@@ -9,7 +9,6 @@ import com.activeandroid.query.Delete;
 import com.activeandroid.query.Select;
 import com.eveningoutpost.dexdrip.utilitymodels.Constants;
 
-import java.util.Date;
 import java.util.List;
 
 @Table(name = "Libre2RawValue2", id = BaseColumns._ID)
@@ -30,13 +29,20 @@ public class Libre2RawValue extends PlusModel {
     @Column(name = "glucose", index = false)
     public double glucose;
 
-    public static List<Libre2RawValue> weightedAverageInterval(long min) {
-        double timestamp = (new Date().getTime()) - (60000 * min);
+    public static List<Libre2RawValue> weightedAverageInterval(long min, long now, String serial) {
         return new Select()
                 .from(Libre2RawValue.class)
-                .where("ts >= " + timestamp)
+                .where("ts >= ?", now - 60000 * min)
+                .where("ts < ?", now)
+                .where("serial = ?", serial)
+                .where("glucose > 0")
                 .orderBy("ts asc")
                 .execute();
+    }
+
+    public static boolean exists(long timestamp, String serial) {
+        return new Select().from(Libre2RawValue.class)
+                .where("ts = ?", timestamp).where("serial = ?", serial).executeSingle() != null;
     }
 
     public static List<Libre2RawValue> latestForGraph(int number, double startTime) {

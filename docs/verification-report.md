@@ -1,3 +1,5 @@
+> **Исторический отчёт от 16.09.2026 для `718d082`.** Указанные здесь APK, тесты другой ветки и ограничения не являются результатами проверки текущих изменений. Актуальный отчёт: [CURRENT-VERIFICATION.md](CURRENT-VERIFICATION.md).
+
 # Adversarial verification report — custom xDrip+ build (Libre 2 Gen2 RU recognition + Libre 2 calibration)
 
 **Date:** 2026-09-16 · **Verifier:** Hermes subagent (verification worktree `C:/Users/jar1k/xdrip-verify`, branch `verify-tests`)

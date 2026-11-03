@@ -3,7 +3,6 @@ package com.eveningoutpost.dexdrip.ui;
 
 import static com.eveningoutpost.dexdrip.xdrip.gs;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static java.nio.file.FileVisitResult.CONTINUE;
 
 import com.eveningoutpost.dexdrip.R;
 import com.eveningoutpost.dexdrip.RobolectricTestWithConfig;
@@ -13,12 +12,10 @@ import org.junit.Test;
 import org.robolectric.RuntimeEnvironment;
 
 import java.io.IOException;
-import java.nio.file.FileVisitResult;
-import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.attribute.BasicFileAttributes;
+import java.util.stream.Stream;
 import java.text.MessageFormat;
 import java.util.Arrays;
 import java.util.Locale;
@@ -36,40 +33,23 @@ public class TranslationTest extends RobolectricTestWithConfig {
 
     @Test
     public void testFormatStrings() throws IOException {
+        xdrip.setContextAlways(RuntimeEnvironment.getApplication());
         val config = xdrip.getAppContext().getResources().getConfiguration();
         val internal = xdrip.getAppContext().getResources().getStringArray(R.array.LocaleChoicesValues);
         val extra = new String[]{"ar", "cs", "de", "el", "en", "es", "fi", "fr", "he", "hr", "it", "iw", "ja", "ko", "nb", "nl", "pl", "pt", "ro", "ru", "sk", "sl", "sv", "tr", "zh"};
-        val inset = "^values-";
         Set<String> locales = new TreeSet<>(Arrays.asList(internal));
-        class ResourceLocaleParser implements FileVisitor<Path> {
-            @Override
-            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attributes) {
-                val s = dir.getFileName().toString();
-                if (s.matches(inset + "[a-z][a-z]($|-r[a-zA-Z][a-zA-Z]$)")) {
-                    val locale = s.replaceFirst(inset, "").replace("-r", "-");
-                    locales.add(locale);
-                }
-                return CONTINUE;
-            }
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) {
-                return CONTINUE;
-            }
-            @Override
-            public FileVisitResult visitFileFailed(Path file, IOException e) {
-                return CONTINUE;
-            }
-            @Override
-            public FileVisitResult postVisitDirectory(Path dir, IOException e) {
-                return CONTINUE;
-            }
-        }
-
-        val resourcePath = RuntimeEnvironment.application
-                .getPackageResourcePath()
-                .replaceFirst("apk_for_local_test(?:\\\\|/).*", "merged-not-compiled-resources");
         val size = locales.size();
-        Files.walkFileTree(Paths.get(resourcePath), new ResourceLocaleParser());
+        // AGP 8 no longer creates merged-not-compiled-resources. Gradle runs this
+        // task in the app module, so inspect the checked-in resource directories.
+        // This also works when AssetManager.getLocales() is unimplemented by a shadow.
+        final Path resourcePath = Paths.get("src/main/res");
+        assertWithMessage("Missing app resource source directory").that(Files.isDirectory(resourcePath)).isTrue();
+        try (Stream<Path> directories = Files.list(resourcePath)) {
+            directories.filter(Files::isDirectory).map(path -> path.getFileName().toString())
+                    .filter(name -> name.matches("values-[a-z]{2}(-r[a-zA-Z]{2})?"))
+                    .map(name -> name.substring("values-".length()).replace("-r", "-"))
+                    .forEach(locales::add);
+        }
         assertWithMessage("No locales added from resources - this seems unlikely").that(locales.size()).isGreaterThan(size);
         locales.addAll(Arrays.asList(extra));
         String fmt;

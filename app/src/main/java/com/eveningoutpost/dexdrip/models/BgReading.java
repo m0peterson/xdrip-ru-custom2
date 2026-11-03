@@ -1296,69 +1296,57 @@ public class BgReading extends Model implements ShareUploadableBg {
             return existing;
         }
     }
-    public static synchronized BgReading bgReadingInsertLibre2(double calculated_value, long timestamp, double raw_data) {
+    public static synchronized BgReading bgReadingInsertLibre2(double value, long timestamp, double raw) {
+        return bgReadingInsertLibre2(value, timestamp, raw,
+                DexCollectionType.getCurrentDeduplicationPeriod(), false);
+    }
 
+    // Bridge values are already glucose in mg/dL. Keep that scale for both calibration
+    // and display; never run them through the Dexcom raw/age-adjustment pipeline.
+    public static synchronized BgReading bgReadingInsertLibre2(double value, long timestamp,
+                                                               double raw, long margin, boolean quick) {
+        if (!Double.isFinite(value) || !Double.isFinite(raw) || value <= 0 || raw <= 0 || timestamp <= 0) {
+            Log.e(TAG, "Invalid Libre bridge reading");
+            return null;
+        }
         final Sensor sensor = Sensor.currentSensor();
         if (sensor == null) {
             Log.w(TAG, "No sensor, ignoring this bg reading");
             return null;
         }
-        // TODO slope!!
-        final BgReading existing = getForPreciseTimestamp(timestamp, DexCollectionType.getCurrentDeduplicationPeriod());
-        if (existing == null) {
-            Calibration calibration = Calibration.lastValid();
-            final BgReading bgReading = new BgReading();
-            if (calibration == null) {
-                Log.d(TAG, "create: No calibration yet");
-                bgReading.sensor = sensor;
-                bgReading.sensor_uuid = sensor.uuid;
-                bgReading.raw_data = raw_data;
-                bgReading.age_adjusted_raw_value = raw_data;
-                bgReading.filtered_data = raw_data;
-                bgReading.timestamp = timestamp;
-                bgReading.uuid = UUID.randomUUID().toString();
-                bgReading.calculated_value = calculated_value;
-                bgReading.calculated_value_slope = 0;
-                bgReading.hide_slope = false;
-                bgReading.appendSourceInfo("Libre2 Native");
-                bgReading.find_slope();
+        final BgReading existing = getForPreciseTimestamp(timestamp, margin);
+        if (existing != null) return existing;
 
-                bgReading.save();
-                bgReading.perform_calculations();
-                bgReading.postProcess(false);
-
-            } else {
-                Log.d(TAG, "Calibrations, so doing everything bgReading = " + bgReading);
-                bgReading.sensor = sensor;
-                bgReading.sensor_uuid = sensor.uuid;
-                bgReading.calibration = calibration;
-                bgReading.calibration_uuid = calibration.uuid;
-                bgReading.raw_data = raw_data ;
-                bgReading.age_adjusted_raw_value = raw_data;
-                bgReading.filtered_data = raw_data;
-                bgReading.timestamp = timestamp;
-                bgReading.uuid = UUID.randomUUID().toString();
-
-                bgReading.calculated_value = ((calibration.slope * calculated_value) + calibration.intercept);
-                bgReading.filtered_calculated_value = ((calibration.slope * bgReading.ageAdjustedFiltered()) + calibration.intercept);
-
-                bgReading.calculated_value_slope = 0;
-                bgReading.hide_slope = false;
-                bgReading.appendSourceInfo("Libre2 Native");
-
-                BgReading.updateCalculatedValueToWithinMinMax(bgReading);
-
-                bgReading.find_slope();
-                bgReading.save();
-
-                bgReading.postProcess(false);
-
-            }
-
-           return bgReading;
-        } else {
-            return existing;
+        final Calibration calibration = DexCollectionType.isLibreCalibrationEnabled()
+                ? Calibration.lastValid() : null;
+        final BgReading reading = new BgReading();
+        reading.sensor = sensor;
+        reading.sensor_uuid = sensor.uuid;
+        reading.raw_data = raw;
+        reading.age_adjusted_raw_value = raw;
+        reading.filtered_data = raw;
+        reading.timestamp = timestamp;
+        reading.time_since_sensor_started = timestamp - sensor.started_at;
+        reading.uuid = UUID.randomUUID().toString();
+        reading.calculated_value = value;
+        reading.filtered_calculated_value = raw;
+        // Wear accepts readings without calibration only with a native/follow marker.
+        reading.appendSourceInfo("Libre2 Native");
+        if (calibration != null) {
+            reading.calibration = calibration;
+            reading.calibration_uuid = calibration.uuid;
+            reading.calculated_value = calibration.slope * value + calibration.intercept;
+            reading.filtered_calculated_value = calibration.slope * raw + calibration.intercept;
+            updateCalculatedValueToWithinMinMax(reading);
         }
+        // find_slope() requires a saved, latest reading. History must not calculate
+        // a trend against newer values or trigger live-reading alerts.
+        reading.save();
+        final BgReading latest = BgReading.last();
+        final boolean backfill = quick || latest == null || !reading.uuid.equals(latest.uuid);
+        if (!backfill) reading.perform_calculations();
+        reading.postProcess(backfill);
+        return reading;
     }
 
     public static void handleResyncWearAfterBackfill(final long earliest) {

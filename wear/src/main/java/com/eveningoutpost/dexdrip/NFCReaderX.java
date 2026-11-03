@@ -629,6 +629,10 @@ if (Pref.getBooleanDefaultFalse("external_blukon_algorithm")) {
 
                         SensorType sensorType = LibreOOPAlgorithm.getSensorType(patchInfo);
                         Log.uel(TAG, "Libre sensor of type " + sensorType.name() + " detected.");
+                        if (sensorType == SensorType.Libre2Gen2) {
+                            JoH.static_toast_long(gs(R.string.libre2_gen2_not_supported_use_bridge));
+                            return null;
+                        }
                         if (addressed && sensorType != SensorType.Libre1 && sensorType != SensorType.Libre1New) {
                             Log.d(TAG, "Not using addressed mode since not a libre 1 sensor");
                             addressed = false;

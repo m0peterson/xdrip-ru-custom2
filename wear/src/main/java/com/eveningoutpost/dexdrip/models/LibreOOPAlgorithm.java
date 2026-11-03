@@ -290,7 +290,7 @@ public class LibreOOPAlgorithm {
     }
 
     public static SensorType getSensorType(byte[] SensorInfo) {
-        if (SensorInfo == null) {
+        if (SensorInfo == null || SensorInfo.length < 3) {
             return SensorType.Libre1;
         }
         // Libre 2 Gen2 sensors (e.g. Russian region 2B 0A 39 08) use a new encryption generation
